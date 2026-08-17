@@ -159,7 +159,7 @@ export function CatDetail() {
   return (
     <>
       <button type="button" className="back-link" onClick={() => navigate(-1)}>
-        ← Retour au catalogue
+        ← Retour
       </button>
 
       <div className="panel">

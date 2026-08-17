@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// Règles de sécurité Pokécat.
+//
+// Principe : seules les adresses email listées dans `membres()` peuvent lire et
+// écrire dans la collection `cats`. Tout le reste est refusé.
+// Voir explications.md, étape 5, pour savoir où coller ce fichier.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 👇 REMPLACE ces deux adresses par les vôtres.
+    function membres() {
+      return [
+        'justinvanwichelen@gmail.com',
+        'gaelle.schoonjans@gmail.com'
+      ];
+    }
+
+    function estMembre() {
+      return request.auth != null
+        && request.auth.token.email in membres();
+    }
+
+    match /cats/{catId} {
+      allow read, write: if estMembre();
+
+      match /photos/{photoId} {
+        allow read, write: if estMembre();
+      }
+
+      // Historique des rencontres.
+      match /sightings/{sightingId} {
+        allow read, write: if estMembre();
+      }
+    }
+
+    // Tout le reste est interdit.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

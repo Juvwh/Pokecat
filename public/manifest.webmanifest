@@ -1,0 +1,24 @@
+{
+  "name": "Pokécat",
+  "short_name": "Pokécat",
+  "description": "Le catalogue des chats croisés dans la rue",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f8ff",
+  "theme_color": "#a9e8fc",
+  "icons": [
+    {
+      "src": "./logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

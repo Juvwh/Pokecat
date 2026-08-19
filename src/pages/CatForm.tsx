@@ -1,22 +1,22 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { TRAITS } from '../types'
+import { traitKey, TRAIT_SUGGESTIONS } from '../types'
 import type { CatDraft, CatTrait } from '../types'
 import { useAuth } from '../context/AuthContext'
 import { useCats } from '../context/CatsContext'
 import { createCat, updateCat } from '../lib/cats'
 import { processPhoto } from '../lib/image'
 import type { ProcessedPhoto } from '../lib/image'
-import { DEFAULT_CENTER, getCurrentPosition, reverseGeocode } from '../lib/geo'
+import { DEFAULT_CENTER, getCurrentPosition } from '../lib/geo'
 import type { Coords } from '../lib/geo'
 import { fromDateInput, toDateInput } from '../lib/time'
 import { MapPicker } from '../components/map'
+import { TraitPicker } from '../components/TraitPicker'
 import { Alert, Loading } from '../components/States'
 import { padNumber } from '../components/CatCard'
 
 const EMPTY_DRAFT: CatDraft = {
   name: '',
-  address: '',
   location: null,
   traits: [],
   rarity: 3,
@@ -24,6 +24,13 @@ const EMPTY_DRAFT: CatDraft = {
 }
 
 const MAX_NEW_PHOTOS = 6
+
+/** Un exemple de note est tiré au sort à l'ouverture du formulaire. */
+const NOTES_PLACEHOLDERS = [
+  "Il vient parfois manger les croquettes de Woody…",
+  'Adore monter sur les voitures',
+  'Plus gros que Gros Lard',
+]
 
 /** Formulaire partagé : création (`/nouveau`) et modification (`/chat/:id/modifier`). */
 export function CatForm({ mode }: { mode: 'create' | 'edit' }) {
@@ -39,6 +46,9 @@ export function CatForm({ mode }: { mode: 'create' | 'edit' }) {
   // Date de la première rencontre : modifiable à la création seulement.
   // Ensuite, l'historique se gère depuis la fiche du chat.
   const [firstSeen, setFirstSeen] = useState(() => toDateInput(Date.now()))
+  const [notesPlaceholder] = useState(
+    () => NOTES_PLACEHOLDERS[Math.floor(Math.random() * NOTES_PLACEHOLDERS.length)],
+  )
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState<false | 'photo' | 'gps' | 'save'>(false)
@@ -55,6 +65,16 @@ export function CatForm({ mode }: { mode: 'create' | 'edit' }) {
     return withLocation?.location ?? DEFAULT_CENTER
   }, [value?.location, cats])
 
+  // Tous les traits déjà inventés dans le dex : proposés en un tap pour ne pas
+  // les retaper (et éviter les doublons à l'accent près).
+  const traitSuggestions = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const label of [...cats.flatMap((c) => c.traits), ...TRAIT_SUGGESTIONS]) {
+      if (label && !seen.has(traitKey(label))) seen.set(traitKey(label), label)
+    }
+    return [...seen.values()].sort((a, b) => a.localeCompare(b, 'fr'))
+  }, [cats])
+
   if (mode === 'edit' && loading && !existing) return <Loading label="Chargement de la fiche…" />
   if (mode === 'edit' && !existing) return <Alert>Ce chat est introuvable. Il a peut-être été supprimé.</Alert>
   if (!value) return <Loading />
@@ -63,22 +83,13 @@ export function CatForm({ mode }: { mode: 'create' | 'edit' }) {
     setDraft({ ...(value as CatDraft), ...changes })
   }
 
-  function toggleTrait(trait: CatTrait) {
-    const traits = value!.traits.includes(trait)
-      ? value!.traits.filter((t) => t !== trait)
-      : [...value!.traits, trait]
-    patch({ traits })
-  }
-
   async function useMyPosition() {
     setBusy('gps')
     setError(null)
     setInfo(null)
     try {
-      const coords = await getCurrentPosition()
-      const address = await reverseGeocode(coords)
-      patch({ location: coords, ...(address && !value!.address ? { address } : {}) })
-      setInfo(address ? `Position trouvée : ${address}` : 'Position trouvée.')
+      patch({ location: await getCurrentPosition() })
+      setInfo('Position trouvée.')
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -86,14 +97,8 @@ export function CatForm({ mode }: { mode: 'create' | 'edit' }) {
     }
   }
 
-  async function pickOnMap(coords: Coords) {
+  function pickOnMap(coords: Coords) {
     patch({ location: coords })
-    // On ne remplit l'adresse automatiquement que si elle est encore vide,
-    // pour ne pas écraser ce qui a été tapé à la main.
-    if (!value!.address) {
-      const address = await reverseGeocode(coords)
-      if (address) setDraft((d) => ({ ...(d ?? value!), location: coords, address }))
-    }
   }
 
   async function handleFiles(files: FileList | null) {
@@ -126,7 +131,7 @@ export function CatForm({ mode }: { mode: 'create' | 'edit' }) {
     setBusy('save')
     setError(null)
     try {
-      const clean: CatDraft = { ...value!, name: value!.name.trim(), address: value!.address.trim() }
+      const clean: CatDraft = { ...value!, name: value!.name.trim() }
       if (mode === 'edit' && existing) {
         await updateCat(existing.id, clean)
         navigate(`/chat/${existing.id}`, { replace: true })
@@ -255,18 +260,6 @@ export function CatForm({ mode }: { mode: 'create' | 'edit' }) {
         )}
 
         <div className="field">
-          <label className="field__label" htmlFor="address">Adresse</label>
-          <input
-            id="address"
-            className="input"
-            value={value.address}
-            onChange={(e) => patch({ address: e.target.value })}
-            placeholder="Rue de Pied et Chaussette, Profondsart"
-            maxLength={140}
-          />
-        </div>
-
-        <div className="field">
           <span className="field__label">Lieu de la rencontre</span>
           <MapPicker value={value.location} center={mapCenter} onPick={pickOnMap} />
           <p className="field__hint">
@@ -297,24 +290,11 @@ export function CatForm({ mode }: { mode: 'create' | 'edit' }) {
 
         <div className="field">
           <span className="field__label">Caractère</span>
-          <div className="trait-grid">
-            {TRAITS.map((t) => {
-              const on = value.traits.includes(t.id)
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={on ? 'trait-toggle trait-toggle--on' : 'trait-toggle'}
-                  style={{ '--trait-color': t.color } as React.CSSProperties}
-                  aria-pressed={on}
-                  onClick={() => toggleTrait(t.id)}
-                >
-                  <span aria-hidden="true">{t.emoji}</span>
-                  {t.label}
-                </button>
-              )
-            })}
-          </div>
+          <TraitPicker
+            traits={value.traits}
+            suggestions={traitSuggestions}
+            onChange={(traits) => patch({ traits })}
+          />
         </div>
 
         <div className="field">
@@ -344,7 +324,7 @@ export function CatForm({ mode }: { mode: 'create' | 'edit' }) {
             className="textarea"
             value={value.notes}
             onChange={(e) => patch({ notes: e.target.value })}
-            placeholder="Il ronronnait dès qu'on approchait la main…"
+            placeholder={notesPlaceholder}
             maxLength={600}
           />
         </div>
@@ -360,10 +340,9 @@ export function CatForm({ mode }: { mode: 'create' | 'edit' }) {
   )
 }
 
-function toDraft(cat: { name: string; address: string; location: Coords | null; traits: CatTrait[]; rarity: number; notes: string }): CatDraft {
+function toDraft(cat: { name: string; location: Coords | null; traits: CatTrait[]; rarity: number; notes: string }): CatDraft {
   return {
     name: cat.name,
-    address: cat.address,
     location: cat.location,
     traits: cat.traits,
     rarity: cat.rarity,

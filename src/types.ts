@@ -7,21 +7,72 @@
  *   cats/{catId}/sightings/{id} -> Sighting (historique des rencontres)
  */
 
-/** Les "badges" de caractère d'un chat, façon types Pokémon. */
-export type CatTrait = 'caressable' | 'marrant' | 'grosLard' | 'sauvage' | 'bavard' | 'chasseur'
+/**
+ * Un trait de caractère est un **libellé libre** : « Chasseur », « Adore les
+ * voitures »… Il n'y a plus de catalogue figé, on invente les catégories au
+ * moment de remplir la fiche. Seul `CUDDLY_TRAIT` est spécial (bouton dédié
+ * dans le formulaire, ligne « Caresses » sur la fiche).
+ */
+export type CatTrait = string
+
+export const CUDDLY_TRAIT = 'Se laisse caresser'
+
+/**
+ * Les six traits d'origine étaient stockés sous forme d'identifiants.
+ * Les documents déjà en base les contiennent encore : on les retraduit en
+ * libellés à la lecture (`toCat`) pour n'avoir qu'un seul format en mémoire.
+ */
+const LEGACY_TRAIT_LABELS: Record<string, string> = {
+  caressable: CUDDLY_TRAIT,
+  marrant: 'Marrant',
+  grosLard: 'Gros lard',
+  sauvage: 'Sauvage',
+  bavard: 'Bavard',
+  chasseur: 'Chasseur',
+}
+
+/** Suggestions proposées tant qu'aucun chat du dex ne porte encore de trait. */
+export const TRAIT_SUGGESTIONS = ['Marrant', 'Gros lard', 'Sauvage', 'Bavard', 'Chasseur']
+
+/** Identifiant ou libellé -> libellé affichable. */
+export function traitLabel(raw: string): string {
+  return LEGACY_TRAIT_LABELS[raw] ?? raw.trim()
+}
+
+/** Clé de comparaison : deux traits ne diffèrent ni par la casse ni par les accents. */
+export function traitKey(raw: string): string {
+  return traitLabel(raw)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+}
 
 /**
  * Palette pastel accordée aux deux couleurs de marque (#a9e8fc / #f0cbf0).
  * Les badges affichent du texte foncé par-dessus : garder des teintes claires.
  */
-export const TRAITS: { id: CatTrait; label: string; emoji: string; color: string }[] = [
-  { id: 'caressable', label: 'Se laisse caresser', emoji: '🤲', color: '#c3f0d8' },
-  { id: 'marrant', label: 'Marrant', emoji: '🤣', color: '#ffe9b0' },
-  { id: 'grosLard', label: 'Gros lard', emoji: '🍖', color: '#ffd7c2' },
-  { id: 'sauvage', label: 'Sauvage', emoji: '💢', color: '#f0cbf0' },
-  { id: 'bavard', label: 'Bavard', emoji: '🗣️', color: '#a9e8fc' },
-  { id: 'chasseur', label: 'Chasseur', emoji: '🐭', color: '#e6ddcd' },
+const TRAIT_COLORS = [
+  '#ffe9b0',
+  '#ffd7c2',
+  '#f0cbf0',
+  '#a9e8fc',
+  '#e6ddcd',
+  '#d7d9fb',
+  '#cdeccb',
+  '#ffd0dd',
 ]
+
+/**
+ * Couleur déterministe déduite du libellé : un trait inventé garde la même
+ * pastille d'un écran à l'autre et d'un appareil à l'autre, sans rien stocker.
+ */
+export function traitColor(raw: string): string {
+  const key = traitKey(raw)
+  if (key === traitKey(CUDDLY_TRAIT)) return '#c3f0d8'
+  let hash = 0
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) % 100_000
+  return TRAIT_COLORS[hash % TRAIT_COLORS.length]
+}
 
 export interface CatLocation {
   lat: number
@@ -33,8 +84,6 @@ export interface Cat {
   /** Numéro de Pokédex, attribué à la création (001, 002, ...). */
   number: number
   name: string
-  /** Adresse lisible, saisie à la main ou remplie par le géocodage inverse. */
-  address: string
   location: CatLocation | null
   traits: CatTrait[]
   /** Note de rencontre sur 5, façon "niveau de rareté". */
@@ -75,7 +124,4 @@ export interface Sighting {
 }
 
 /** Champs éditables depuis le formulaire. */
-export type CatDraft = Pick<
-  Cat,
-  'name' | 'address' | 'location' | 'traits' | 'rarity' | 'notes'
->
+export type CatDraft = Pick<Cat, 'name' | 'location' | 'traits' | 'rarity' | 'notes'>

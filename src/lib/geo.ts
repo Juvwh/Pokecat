@@ -1,4 +1,4 @@
-/** Géolocalisation du navigateur + géocodage inverse via Nominatim (OpenStreetMap, gratuit). */
+/** Géolocalisation du navigateur. Les chats ne portent qu'un point sur la carte, pas d'adresse. */
 
 export interface Coords {
   lat: number
@@ -30,24 +30,4 @@ export function getCurrentPosition(): Promise<Coords> {
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
     )
   })
-}
-
-/** Coordonnées -> adresse lisible. Renvoie null en cas d'échec (le service est best-effort). */
-export async function reverseGeocode({ lat, lng }: Coords): Promise<string | null> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=fr`
-    const res = await fetch(url, { headers: { Accept: 'application/json' } })
-    if (!res.ok) return null
-
-    const data = await res.json()
-    const a = data.address ?? {}
-    const parts = [
-      [a.house_number, a.road].filter(Boolean).join(' '),
-      a.city ?? a.town ?? a.village ?? a.municipality,
-    ].filter(Boolean)
-
-    return parts.length > 0 ? parts.join(', ') : (data.display_name ?? null)
-  } catch {
-    return null
-  }
 }

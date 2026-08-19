@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { Cat, CatDraft, CatPhoto, Sighting } from '../types'
+import { traitLabel } from '../types'
 import type { ProcessedPhoto } from './image'
 
 const CATS = 'cats'
@@ -21,9 +22,10 @@ function toCat(id: string, data: Record<string, unknown>): Cat {
     id,
     number: (data.number as number) ?? 0,
     name: (data.name as string) ?? 'Chat mystère',
-    address: (data.address as string) ?? '',
     location: (data.location as Cat['location']) ?? null,
-    traits: (data.traits as Cat['traits']) ?? [],
+    // Les anciens documents stockent des identifiants ('grosLard') : on les
+    // retraduit en libellés pour n'avoir qu'un seul format côté application.
+    traits: (((data.traits as string[]) ?? []).map(traitLabel)).filter(Boolean),
     rarity: (data.rarity as number) ?? 3,
     notes: (data.notes as string) ?? '',
     thumbnail: (data.thumbnail as string) ?? null,
@@ -70,7 +72,6 @@ export async function createCat(input: CreateCatInput): Promise<string> {
   const ref = await addDoc(collection(db, CATS), {
     number: input.number,
     name: input.name,
-    address: input.address,
     location: input.location,
     traits: input.traits,
     rarity: input.rarity,

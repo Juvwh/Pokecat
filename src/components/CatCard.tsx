@@ -7,9 +7,13 @@ export function padNumber(n: number): string {
   return String(n).padStart(3, '0')
 }
 
-export function CatCard({ cat }: { cat: Cat }) {
+/** `featured` : le tout premier chat du dex, épinglé et mis en avant. */
+export function CatCard({ cat, featured = false }: { cat: Cat; featured?: boolean }) {
   return (
-    <Link className="cat-card" to={`/chat/${cat.id}`}>
+    <Link
+      className={featured ? 'cat-card cat-card--featured' : 'cat-card'}
+      to={`/chat/${cat.id}`}
+    >
       <div className="cat-card__media">
         {cat.thumbnail ? (
           <img src={cat.thumbnail} alt={cat.name} loading="lazy" />
@@ -25,7 +29,6 @@ export function CatCard({ cat }: { cat: Cat }) {
       </div>
       <div className="cat-card__body">
         <p className="cat-card__name">{cat.name}</p>
-        <p className="cat-card__address">{cat.address || 'Adresse inconnue'}</p>
         <p className="cat-card__seen">👀 {formatRelative(cat.lastSeenAt)}</p>
         <Badges traits={cat.traits} variant="dot" />
       </div>

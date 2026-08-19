@@ -62,6 +62,22 @@ body,
   margin: 0;
 }
 
+/* Le défilement appartient à #root, pas au document : c'est la seule façon
+   fiable (iOS compris) d'empêcher la page de « rebondir » quand on continue
+   de scroller alors qu'on est déjà tout en haut ou tout en bas. */
+html,
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#root {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
   font-family: var(--sans);
   color: var(--ink);
@@ -73,7 +89,6 @@ body {
     linear-gradient(170deg, #e8f7ff 0%, #f6f0fb 45%, #fceffb 100%);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
-  overscroll-behavior-y: none;
 }
 
 button,
@@ -363,13 +378,20 @@ a {
   text-overflow: ellipsis;
 }
 
-.cat-card__address {
-  margin: 2px 0 0;
-  font-size: 0.76rem;
-  color: var(--ink-soft);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Le n°001 est épinglé en tête du catalogue : il mérite d'être reconnaissable
+   au premier coup d'œil. */
+.cat-card--featured {
+  box-shadow: var(--shadow-lg), 0 0 0 3px var(--pink);
+}
+
+.cat-card--featured .cat-card__name {
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.cat-card--featured .cat-card__number {
+  background: linear-gradient(100deg, var(--blue) 0%, var(--pink) 100%);
 }
 
 .cat-card__seen {
@@ -845,14 +867,58 @@ a {
   box-shadow: 0 0 0 4px rgb(169 232 252 / 50%);
 }
 
-.trait-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
-  gap: 9px;
+.trait-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
+
+.trait-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.trait-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 13px;
+  border-radius: 999px;
+  border: 1px dashed var(--line);
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.trait-chip:hover { border-color: var(--blue); color: var(--ink); }
+
+/* Trait retenu : plein, coloré, avec sa croix de retrait. */
+.trait-chip--on {
+  border: none;
+  background: var(--trait-color, var(--blue));
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.trait-chip--on span { font-size: 1.05rem; line-height: 1; opacity: 0.55; }
+
+.trait-chips--suggestions { margin-top: 2px; }
+
+.trait-add {
+  display: flex;
+  gap: 8px;
+}
+
+.trait-add .input { flex: 1; min-width: 0; }
+.trait-add .btn { flex: none; }
 
 .trait-toggle {
   display: flex;
+  width: 100%;
   align-items: center;
   gap: 9px;
   padding: 12px 14px;

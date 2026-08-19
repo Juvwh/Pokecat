@@ -68,7 +68,6 @@ export function MapPage({ search }: { search: string }) {
                       {cat.thumbnail && <img src={cat.thumbnail} alt={cat.name} />}
                       <span className="map-popup__number">N°{padNumber(cat.number)}</span>
                       <span className="map-popup__name">{cat.name}</span>
-                      <div>{cat.address || 'Adresse inconnue'}</div>
                       <Link to={`/chat/${cat.id}`}>Voir la fiche →</Link>
                     </div>
                   </Popup>

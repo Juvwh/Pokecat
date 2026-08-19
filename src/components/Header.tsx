@@ -37,8 +37,8 @@ export function Header({ search, onSearch, showSearch }: Props) {
             type="search"
             value={search}
             onChange={(e) => onSearch(e.target.value)}
-            placeholder="Chercher un nom ou une adresse…"
-            aria-label="Chercher un chat par nom ou adresse"
+            placeholder="Chercher un nom, un trait…"
+            aria-label="Chercher un chat par nom, trait ou note"
           />
           {search && (
             <button

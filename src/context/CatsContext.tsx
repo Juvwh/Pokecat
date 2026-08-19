@@ -63,7 +63,7 @@ export function useCats(): CatsValue {
   return ctx
 }
 
-/** Recherche par nom ou par adresse, insensible à la casse et aux accents. */
+/** Recherche par nom, trait de caractère ou note, insensible à la casse et aux accents. */
 export function normalize(value: string): string {
   return value
     .toLowerCase()
@@ -76,7 +76,7 @@ export function filterCats(cats: Cat[], search: string): Cat[] {
   const q = normalize(search)
   if (!q) return cats
   return cats.filter((cat) => {
-    const haystack = normalize(`${cat.name} ${cat.address} ${cat.notes}`)
+    const haystack = normalize(`${cat.name} ${cat.traits.join(' ')} ${cat.notes}`)
     // Chaque mot de la recherche doit être présent quelque part.
     return q.split(/\s+/).every((word) => haystack.includes(word))
   })

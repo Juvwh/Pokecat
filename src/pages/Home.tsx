@@ -4,10 +4,20 @@ import { filterCats, useCats } from '../context/CatsContext'
 import { CatCard } from '../components/CatCard'
 import { Alert, EmptyState, Loading } from '../components/States'
 
+const FIRST_NUMBER = 1
+
 export function Home({ search }: { search: string }) {
   const { cats, loading, error } = useCats()
   const navigate = useNavigate()
-  const results = useMemo(() => filterCats(cats, search), [cats, search])
+  // Le chat n°001 reste épinglé en tête du catalogue : c'est le premier de
+  // l'histoire du dex. Le tri est stable, les autres gardent leur ordre.
+  const results = useMemo(
+    () =>
+      [...filterCats(cats, search)].sort(
+        (a, b) => Number(b.number === FIRST_NUMBER) - Number(a.number === FIRST_NUMBER),
+      ),
+    [cats, search],
+  )
 
   if (loading) return <Loading />
   if (error) return <Alert>{error}</Alert>
@@ -44,13 +54,13 @@ export function Home({ search }: { search: string }) {
           <EmptyState
             emoji="🔍"
             title="Aucun résultat"
-            message={`Rien ne correspond à « ${search} ». Essaie un autre nom ou une autre rue.`}
+            message={`Rien ne correspond à « ${search} ». Essaie un autre nom ou un autre trait de caractère.`}
           />
         </div>
       ) : (
         <div className="grid">
           {results.map((cat) => (
-            <CatCard key={cat.id} cat={cat} />
+            <CatCard key={cat.id} cat={cat} featured={cat.number === FIRST_NUMBER} />
           ))}
         </div>
       )}

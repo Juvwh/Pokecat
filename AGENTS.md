@@ -11,7 +11,7 @@
 
 Une application web personnelle, pour **deux utilisateurs** (Justin et sa copine),
 qui sert de **Pokédex des chats croisés dans la rue**. Chaque chat rencontré est
-« capturé » : photos, nom, adresse, point GPS, traits de caractère.
+« capturé » : photos, nom, point GPS, traits de caractère.
 
 Les deux comptes partagent **une seule et même collection** : ce que l'un ajoute
 apparaît en temps réel chez l'autre. Il n'y a pas de notion de collection privée.
@@ -34,7 +34,6 @@ Langue de l'interface, des commentaires et de la documentation : **français**.
 | Auth | Firebase Auth, email + mot de passe, **connexion seule** | Comptes créés à la main dans la console ; l'email sert d'identité dans les règles |
 | Photos | **base64 dans Firestore**, pas Firebase Storage | Storage impose le plan Blaze (carte bancaire). Voir §5 |
 | Carte | Leaflet + `react-leaflet` v4, tuiles OpenStreetMap | Gratuit, sans clé API |
-| Géocodage | Nominatim (OSM), best-effort | Gratuit ; échec silencieux, l'adresse reste saisissable à la main |
 | Hébergement | **GitHub Pages** via GitHub Actions | Gratuit, HTTPS (indispensable pour caméra + GPS) |
 | Styles | CSS unique, variables CSS | Pas de framework ; tout le thème tient dans des tokens `:root` |
 
@@ -57,14 +56,14 @@ src/
   main.tsx                     Point d'entrée
   App.tsx                      HashRouter, providers, routes, garde d'authentification
   firebase.ts                  Init Firebase + `isFirebaseConfigured`
-  types.ts                     `Cat`, `CatPhoto`, `CatDraft`, catalogue `TRAITS`
+  types.ts                     `Cat`, `CatPhoto`, `CatDraft`, helpers de traits libres
   context/
     AuthContext.tsx            Session + messages d'erreur Firebase traduits en français
     CatsContext.tsx            Abonnement temps réel, `nextNumber`, `filterCats`
   lib/
     cats.ts                    Toutes les opérations Firestore (aucune ailleurs)
     image.ts                   Redimensionnement + compression JPEG
-    geo.ts                     Géolocalisation navigateur + géocodage inverse
+    geo.ts                     Géolocalisation du navigateur
     time.ts                    Dates relatives en français + conversions `<input type="date">`
   components/
     logo-source.png            Logo d'origine fourni par l'utilisateur (1186 px) — à ne pas supprimer
@@ -74,6 +73,7 @@ src/
     Nav.tsx                    Navigation basse flottante (Dex / Ajouter / Carte)
     CatCard.tsx                Vignette du catalogue + helper `padNumber`
     Badges.tsx                 Pastilles de caractère (variantes `full` / `dot`)
+    TraitPicker.tsx            Saisie des traits : bouton « caresses » + création libre + suggestions
     map.tsx                    `catPin`, `Recenter`, `MapPicker`, constantes de tuiles
     SightingHistory.tsx        Frise des rencontres + formulaire « je l'ai recroisé »
     States.tsx                 `Loading`, `EmptyState`, `Alert`
@@ -95,9 +95,8 @@ src/
 cats/{catId}
   number: number          // n° de Pokédex, 1, 2, 3… (affiché « N°001 »)
   name: string
-  address: string
   location: { lat, lng } | null
-  traits: CatTrait[]      // 'caressable' | 'marrant' | 'grosLard' | 'sauvage' | 'bavard' | 'chasseur'
+  traits: string[]        // libellés libres : 'Se laisse caresser', 'Chasseur', 'Adore les voitures'…
   rarity: number          // 1 à 5
   notes: string
   thumbnail: string|null  // data URL JPEG ~400px — sert au catalogue ET aux pins de la carte
@@ -212,9 +211,10 @@ imposées par l'utilisateur** et structurent toute l'interface.
   légèrement négatif sur les gros titres). `Press Start 2P` (`--pixel`) survit
   **uniquement** sur les numéros de dex `N°001` — c'est le seul clin d'œil rétro,
   ne pas l'étendre.
-- **Traits de caractère** : pastilles pastel, couleur définie une seule fois dans
-  `TRAITS` (`src/types.ts`) et propagée en CSS via `--badge-color` / `--trait-color`.
-  Toujours choisir des teintes claires : le texte des badges est foncé.
+- **Traits de caractère** : pastilles pastel. Les traits étant libres, leur
+  couleur est **déduite du libellé** (`traitColor`, `src/types.ts`) et propagée en
+  CSS via `--badge-color` / `--trait-color`. La palette ne contient que des teintes
+  claires : le texte des badges est foncé. Ne pas y ajouter de couleur soutenue.
 - **Mobile-first** : conteneur `max-width: 640px`, `env(safe-area-inset-bottom)`
   respecté sous la nav, cibles tactiles ≥ 42 px, `prefers-reduced-motion` honoré.
 
@@ -228,8 +228,9 @@ L'original haute résolution est conservé dans `src/components/logo-source.png`
 la version utilisée est réduite à 512 px (1,19 Mo → 72 Ko) car elle est chargée
 sur chaque écran.
 
-Pour ajouter un trait de caractère : une seule ligne dans `TRAITS`. Tout le reste
-(formulaire, badges, fiche) se met à jour automatiquement.
+Il n'y a plus de catalogue de traits : ils se créent depuis le formulaire. Les
+libellés déjà utilisés dans le dex sont proposés en suggestions par `CatForm`,
+complétés par `TRAIT_SUGGESTIONS` (`src/types.ts`) tant que le dex est vide.
 
 ---
 
@@ -237,9 +238,9 @@ Pour ajouter un trait de caractère : une seule ligne dans `TRAITS`. Tout le res
 
 | Route | Fichier | Contenu |
 |---|---|---|
-| `/` | `Home.tsx` | Grille des vignettes, compteur « chats capturés », filtrée par la recherche |
+| `/` | `Home.tsx` | Grille des vignettes, compteur, filtrée par la recherche. Le **n°001 est épinglé en tête** et sa vignette est mise en avant |
 | `/carte` | `MapPage.tsx` | Carte plein écran, pins = miniatures, popup → lien vers la fiche. Même filtre de recherche |
-| `/nouveau` | `CatForm.tsx` (`mode="create"`) | Nom, photos (caméra `capture="environment"` / galerie), adresse, `MapPicker`, traits, rareté, notes |
+| `/nouveau` | `CatForm.tsx` (`mode="create"`) | Nom, photos (caméra `capture="environment"` / galerie), `MapPicker`, traits, rareté, notes |
 | `/chat/:id` | `CatDetail.tsx` | Photo principale + miniatures + lightbox, bandeau « vu pour la dernière fois », fiche stats, mini-carte, **historique des rencontres**, ajout/suppression de photo, modifier, supprimer |
 | `/chat/:id/modifier` | `CatForm.tsx` (`mode="edit"`) | Mêmes champs, sans les photos ni la date de première rencontre (elles se gèrent depuis la fiche) |
 
@@ -247,7 +248,7 @@ La **barre de recherche vit dans le `Header`** et n'est affichée que sur `/` et
 `/carte`. Son état est détenu par `Shell` (`App.tsx`) et passé en prop — c'est
 volontaire, il n'y a pas de contexte de recherche.
 
-`filterCats` (dans `CatsContext.tsx`) cherche dans **nom + adresse + notes**,
+`filterCats` (dans `CatsContext.tsx`) cherche dans **nom + traits + notes**,
 insensible à la casse et aux accents, tous les mots de la requête devant
 correspondre.
 
@@ -287,6 +288,30 @@ Le déploiement est automatique : tout `push` sur `main` déclenche
 ---
 
 ## 10. Journal des itérations
+
+### v1.4 — 19 août 2026 — Traits libres, fin des adresses, scroll figé
+**Traits de caractère libres.** Le catalogue figé `TRAITS` disparaît : `traits`
+est désormais une liste de **libellés** (`string[]`) inventés au moment de
+remplir la fiche, via le nouveau `TraitPicker`. Seul « Se laisse caresser »
+(`CUDDLY_TRAIT`) garde un bouton dédié, car la fiche lui réserve une ligne.
+La couleur d'un trait est déduite de son libellé (`traitColor`), et les anciens
+identifiants (`grosLard`…) sont retraduits à la lecture dans `toCat` — donc
+**aucune migration Firestore n'est nécessaire**, ne pas en écrire une.
+
+**Suppression du champ `address`.** Seul le point sur la carte est utilisé.
+Le champ a disparu du modèle, du formulaire, de la fiche, des vignettes et de la
+popup de la carte ; `reverseGeocode` et la dépendance Nominatim ont été retirés.
+Les anciens documents gardent leur champ `address` en base, simplement ignoré.
+La recherche porte maintenant sur **nom + traits + notes**.
+
+**Scroll figé aux extrémités.** Le défilement appartient à `#root`
+(`html, body { overflow: hidden }`), ce qui supprime le rebond du document quand
+on continue de scroller alors qu'on est déjà tout en haut ou tout en bas. Ne pas
+remettre le défilement sur `body` : le rebond reviendrait.
+
+**Chat n°001 épinglé** en tête du catalogue (`Home`, tri stable) avec une
+vignette mise en avant (`.cat-card--featured`). Placeholder des notes tiré au
+sort parmi trois exemples.
 
 ### v1.3 — 17 août 2026 — Ajustements de contenu
 Carte centrée par défaut sur **Profondsart** (hameau de Limal, Wavre —

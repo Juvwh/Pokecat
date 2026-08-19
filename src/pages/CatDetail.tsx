@@ -16,7 +16,7 @@ import {
 import { processPhoto } from '../lib/image'
 import { formatDate, formatRelative } from '../lib/time'
 import type { CatPhoto, Sighting } from '../types'
-import { TRAITS } from '../types'
+import { CUDDLY_TRAIT, traitKey, traitLabel } from '../types'
 import { Badges } from '../components/Badges'
 import { padNumber } from '../components/CatCard'
 import { catPin, TILE_ATTRIBUTION, TILE_URL } from '../components/map'
@@ -139,8 +139,8 @@ export function CatDetail() {
     }
   }
 
-  const traitLabels = TRAITS.filter((t) => cat.traits.includes(t.id))
-  const cuddly = cat.traits.includes('caressable')
+  const traitLabels = cat.traits.map(traitLabel)
+  const cuddly = cat.traits.some((t) => traitKey(t) === traitKey(CUDDLY_TRAIT))
 
   // Repli pour les chats enregistrés avant l'existence de l'historique :
   // on reconstitue une première rencontre à partir du résumé du document.
@@ -214,10 +214,6 @@ export function CatDetail() {
 
         <div className="stats">
           <div className="stat-row">
-            <span className="stat-row__label">Adresse</span>
-            <span className="stat-row__value">{cat.address || '—'}</span>
-          </div>
-          <div className="stat-row">
             <span className="stat-row__label">Caresses</span>
             <span className="stat-row__value">
               {cuddly ? '✅ Se laisse caresser' : '❌ Pas touche'}
@@ -226,7 +222,7 @@ export function CatDetail() {
           <div className="stat-row">
             <span className="stat-row__label">Caractère</span>
             <span className="stat-row__value">
-              {traitLabels.length > 0 ? traitLabels.map((t) => t.label).join(' · ') : '—'}
+              {traitLabels.length > 0 ? traitLabels.join(' · ') : '—'}
             </span>
           </div>
           <div className="stat-row">
